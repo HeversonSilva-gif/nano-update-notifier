@@ -3,11 +3,14 @@
   "version": "0.0.0",
   "description": "Update notifications for your CLI app. Zero dependencies.",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {},
   "peerDependencies": {},
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/semver": "^7.7.1",
     "semver": "^7.6.3",
     "tsup": "^8.0.0",
     "typescript": "^5.6.0",
