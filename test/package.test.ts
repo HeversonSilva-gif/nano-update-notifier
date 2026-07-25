@@ -90,14 +90,20 @@ describe("detached check integration", () => {
       const updateNotifier = (await import("../dist/index.js")).default;
       updateNotifier({ pkg: { name, version: "1.0.0" }, updateCheckInterval: 0 });
 
-      const deadline = Date.now() + 5000;
-      while (Date.now() < deadline) {
-        if (fs.existsSync(cache)) {
-          const content = JSON.parse(fs.readFileSync(cache, "utf8")) as { update?: unknown };
-          if (content.update) break;
+      // A cold process spawn plus the request can take seconds on a loaded CI
+      // runner. The budget is generous because it bounds a hang, not a latency
+      // expectation — the exit-blocking guarantee is asserted separately above.
+      const deadline = Date.now() + 30_000;
+      let written = false;
+      while (!written && Date.now() < deadline) {
+        try {
+          written = Boolean((JSON.parse(fs.readFileSync(cache, "utf8")) as { update?: unknown }).update);
+        } catch {
+          // The worker has not created or finished writing the cache yet.
         }
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        if (!written) await new Promise((resolve) => setTimeout(resolve, 25));
       }
+      expect(written, "the detached worker never wrote an update to the cache").toBe(true);
 
       const notifier = updateNotifier({ pkg: { name, version: "1.0.0" } });
       expect(notifier.update).toEqual({
@@ -116,5 +122,5 @@ describe("detached check integration", () => {
       }
       fs.rmSync(home, { recursive: true, force: true });
     }
-  }, 10_000);
+  }, 45_000);
 });
