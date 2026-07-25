@@ -1,6 +1,6 @@
 import process from "node:process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { box, visualWidth, type BoxOptions } from "../src/box.js";
+import { box, colorLevel, hexEscape, visualWidth, type BoxOptions } from "../src/box.js";
 
 // boxen renders through chalk, which locks its colour level at import time, so the
 // environment has to be in place before the oracle is loaded.
@@ -140,6 +140,38 @@ describe("box differential against boxen", () => {
       expect(box(sample, { padding: 1, margin: 1, textAlignment: "center", borderStyle: "round" })).toBe(
         boxen(sample, { padding: 1, margin: 1, textAlignment: "center", borderStyle: "round" }),
       );
+    }
+  });
+});
+
+describe("hex colours match chalk at every terminal depth", () => {
+  const samples = ["#28b5ac", "#000000", "#ffffff", "#ff0000", "#00ff00", "#0000ff", "#7f7f7f", "#010203", "#123", "#abc", "#f0f", "#fedcba"];
+
+  for (const level of [1, 2, 3] as const) {
+    for (const hex of samples) {
+      it(`level ${level} encodes ${hex} like chalk`, async () => {
+        const { Chalk } = await import("chalk");
+        const chalk = new Chalk({ level });
+        // chalk wraps the value; compare only the opening escape it produces.
+        const opening = (rendered: string): string => rendered.slice(0, rendered.indexOf("m") + 1);
+        expect(hexEscape(hex, false, level)).toBe(opening(chalk.hex(hex)("x")));
+        expect(hexEscape(hex, true, level)).toBe(opening(chalk.bgHex(hex)("x")));
+      });
+    }
+  }
+
+  it("resolves the terminal depth the way supports-color does", async () => {
+    // chalk's exports map hides its vendored copy, so reach it by path instead.
+    const { default: supportsColor } = (await import(
+      "../node_modules/chalk/source/vendor/supports-color/index.js"
+    )) as { default: { stdout: false | { level: number } } };
+    expect(colorLevel()).toBe(supportsColor.stdout ? supportsColor.stdout.level : 0);
+  });
+
+  it("renders a hex border end to end like boxen", () => {
+    for (const hex of ["#28b5ac", "#f0f", "#123456"]) {
+      const options = { padding: 1, margin: 1, borderStyle: "round" as const, borderColor: hex };
+      expect(box("hello", structuredClone(options))).toBe(boxen("hello", structuredClone(options)));
     }
   });
 });

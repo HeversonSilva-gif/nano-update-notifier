@@ -1,3 +1,4 @@
+import os from "node:os";
 import process from "node:process";
 
 const ANSI = /(?:\u001B\][\s\S]*?(?:\u0007|\u001B\\|\u009C))|(?:[\u001B\u009B][[\]()#;?]*(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])/g;
@@ -104,10 +105,120 @@ function colorsEnabled(): boolean {
   return "FORCE_COLOR" in process.env || Boolean(process.stdout.isTTY);
 }
 
+const HEX = /^#(?:[0-9a-f]{3}){1,2}$/i;
+
+function parseHex(color: string): [number, number, number] {
+  let digits = color.slice(1);
+  if (digits.length === 3) digits = digits.replace(/./g, (digit) => digit + digit);
+  const value = Number.parseInt(digits, 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+function rgbToAnsi256(red: number, green: number, blue: number): number {
+  if (red === green && green === blue) {
+    if (red < 8) return 16;
+    if (red > 248) return 231;
+    return Math.round(((red - 8) / 247) * 24) + 232;
+  }
+  return (
+    16 +
+    36 * Math.round((red / 255) * 5) +
+    6 * Math.round((green / 255) * 5) +
+    Math.round((blue / 255) * 5)
+  );
+}
+
+function ansi256ToAnsi16(code: number): number {
+  if (code < 8) return 30 + code;
+  if (code < 16) return 90 + (code - 8);
+
+  let red: number;
+  let green: number;
+  let blue: number;
+  if (code >= 232) {
+    red = green = blue = ((code - 232) * 10 + 8) / 255;
+  } else {
+    const offset = code - 16;
+    const remainder = offset % 36;
+    red = Math.floor(offset / 36) / 5;
+    green = Math.floor(remainder / 6) / 5;
+    blue = (remainder % 6) / 5;
+  }
+
+  const value = Math.max(red, green, blue) * 2;
+  if (value === 0) return 30;
+  const result = 30 + ((Math.round(blue) << 2) | (Math.round(green) << 1) | Math.round(red));
+  return value === 2 ? result + 60 : result;
+}
+
+function forcedLevel(env: NodeJS.ProcessEnv): number | undefined {
+  const forced = env.FORCE_COLOR;
+  if (forced === undefined) return undefined;
+  if (forced === "true") return 1;
+  if (forced === "false") return 0;
+  return forced.length === 0 ? 1 : Math.min(Number.parseInt(forced, 10), 3);
+}
+
+// A hex colour is downsampled to the terminal's depth, so the depth has to be
+// resolved the same way `supports-color` resolves it or the escape diverges.
+// Ported from supports-color, including the ordering, which is load-bearing.
+export function colorLevel(env: NodeJS.ProcessEnv = process.env, argv: string[] = process.argv): number {
+  const forced = forcedLevel(env);
+  if (forced === 0) return 0;
+
+  if (argv.includes("--color=16m") || argv.includes("--color=full") || argv.includes("--color=truecolor")) return 3;
+  if (argv.includes("--color=256")) return 2;
+  if ("TF_BUILD" in env && "AGENT_NAME" in env) return 1;
+  if (!process.stdout.isTTY && forced === undefined) return 0;
+
+  const min = forced ?? 0;
+  if (env.TERM === "dumb") return min;
+
+  if (process.platform === "win32") {
+    const release = os.release().split(".");
+    if (Number(release[0]) >= 10 && Number(release[2]) >= 10_586) {
+      return Number(release[2]) >= 14_931 ? 3 : 2;
+    }
+    return 1;
+  }
+
+  if ("CI" in env) {
+    if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key) => key in env)) return 3;
+    if (["TRAVIS", "APPVEYOR", "GITLAB_CI", "BUILDKITE", "DRONE"].some((key) => key in env) || env.CI_NAME === "codeship") return 1;
+    return min;
+  }
+
+  if ("TEAMCITY_VERSION" in env) return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION!) ? 1 : 0;
+  if (env.COLORTERM === "truecolor") return 3;
+  if (env.TERM === "xterm-kitty" || env.TERM === "xterm-ghostty" || env.TERM === "wezterm") return 3;
+
+  if ("TERM_PROGRAM" in env) {
+    const version = Number.parseInt((env.TERM_PROGRAM_VERSION ?? "").split(".")[0]!, 10);
+    if (env.TERM_PROGRAM === "iTerm.app") return version >= 3 ? 3 : 2;
+    if (env.TERM_PROGRAM === "Apple_Terminal") return 2;
+  }
+
+  if (/-256(color)?$/i.test(env.TERM ?? "")) return 2;
+  if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM ?? "")) return 1;
+  if ("COLORTERM" in env) return 1;
+  return min;
+}
+
+export function hexEscape(color: string, background: boolean, level = colorLevel()): string {
+  const [red, green, blue] = parseHex(color);
+  if (level === 3) return `\u001B[${background ? 48 : 38};2;${red};${green};${blue}m`;
+  if (level === 2) return `\u001B[${background ? 48 : 38};5;${rgbToAnsi256(red, green, blue)}m`;
+  const basic = ansi256ToAnsi16(rgbToAnsi256(red, green, blue));
+  return `\u001B[${background ? basic + 10 : basic}m`;
+}
+
 function paint(value: string, color: string | undefined, background = false): string {
-  const code = color && COLORS[color];
-  if (!code || !colorsEnabled()) return value;
-  return `\u001B[${background ? code + 10 : code}m${value}\u001B[${background ? 49 : 39}m`;
+  if (!color || !colorsEnabled()) return value;
+  const closing = `\u001B[${background ? 49 : 39}m`;
+  if (HEX.test(color)) return `${hexEscape(color, background)}${value}${closing}`;
+  const code = COLORS[color];
+  if (!code) return value;
+  return `\u001B[${background ? code + 10 : code}m${value}${closing}`;
 }
 
 export function reset(value: string): string {
