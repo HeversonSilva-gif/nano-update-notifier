@@ -6,8 +6,11 @@ export type Parsed = {
   build: string[];
 };
 
-const PATTERN =
-  /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-.]+))?(?:\+([0-9A-Za-z-.]+))?$/;
+const NUMERIC = String.raw`(?:0|[1-9]\d*)`;
+const PRERELEASE_IDENTIFIER = String.raw`(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)`;
+const PATTERN = new RegExp(
+  String.raw`^v?(${NUMERIC})\.(${NUMERIC})\.(${NUMERIC})(?:-(${PRERELEASE_IDENTIFIER}(?:\.${PRERELEASE_IDENTIFIER})*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`,
+);
 
 function identifier(part: string): string | number {
   return /^\d+$/.test(part) ? Number(part) : part;
@@ -18,10 +21,12 @@ export function parse(version: string): Parsed | null {
   if (!match) return null;
 
   const [, major, minor, patch, prerelease, build] = match;
+  const core = [major, minor, patch].map(Number);
+  if (core.some((part) => !Number.isSafeInteger(part))) return null;
   return {
-    major: Number(major),
-    minor: Number(minor),
-    patch: Number(patch),
+    major: core[0]!,
+    minor: core[1]!,
+    patch: core[2]!,
     prerelease: prerelease ? prerelease.split(".").map(identifier) : [],
     build: build ? build.split(".") : [],
   };

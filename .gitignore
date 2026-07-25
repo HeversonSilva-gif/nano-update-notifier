@@ -33,7 +33,9 @@ lerna-debug.log*
 !.env.example
 
 # Editors
-.vscode/
+# Ignoring the directory itself would stop git descending into it, and the
+# negation below would never be reached.
+.vscode/*
 !.vscode/extensions.json
 .idea/
 *.swp
@@ -49,6 +51,9 @@ desktop.ini
 *.tgz
 .npm/
 .eslintcache
+# This package reads .npmrc, so a contributor testing private-registry auth is
+# likely to create one holding a real token.
+.npmrc
 
 # Working documents: design specs and implementation plans.
 # These orient the maintainers; they are not artifacts for consumers.
