@@ -253,7 +253,11 @@ export function box(text: string, options: BoxOptions = {}): string {
 
   const lines = text.split("\n");
   const textWidth = Math.max(0, ...lines.map(visualWidth));
-  const naturalWidth = textWidth + padding.left + padding.right;
+  // boxen sizes the box against text already wrapped at the terminal, so one long
+  // line cannot inflate the natural width before the cap below applies.
+  const preWrapped = wrap(text, Math.max(1, columns - borderWidth), { hard: true, trim: false });
+  const naturalWidth =
+    Math.max(0, ...preWrapped.split("\n").map(visualWidth)) + padding.left + padding.right;
 
   let title = options.title;
   if (title) {
@@ -265,10 +269,19 @@ export function box(text: string, options: BoxOptions = {}): string {
       if (!widthOverride && visualWidth(title) > naturalWidth) width = visualWidth(title);
     }
   }
-  // boxen caps the width at the terminal and reflows anything wider. Reflowing ANSI
-  // text costs more code than the whole module, so a box that outgrows the terminal
-  // stays wide and lets the terminal wrap it.
   width ||= naturalWidth;
+
+  // Margins give up their space before the box does, then the box is capped so it
+  // cannot outgrow the terminal. An explicit width opts out of both.
+  if (!widthOverride) {
+    const maxWidth = columns - margin.left - margin.right - borderWidth;
+    if (margin.left && margin.right && width > maxWidth) {
+      const multiplier = (columns - width - borderWidth) / (margin.left + margin.right);
+      margin.left = Math.max(0, Math.floor(margin.left * multiplier));
+      margin.right = Math.max(0, Math.floor(margin.right * multiplier));
+    }
+    width = Math.min(width, columns - borderWidth - margin.left - margin.right);
+  }
 
   if (width - (padding.left + padding.right) <= 0) {
     padding.left = 0;
