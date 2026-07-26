@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,5 +40,64 @@ describe("config path differential", () => {
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("cache interoperability", () => {
+  const previous = {
+    CI: process.env.CI,
+    NODE_ENV: process.env.NODE_ENV,
+    NO_UPDATE_NOTIFIER: process.env.NO_UPDATE_NOTIFIER,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+  let home = "";
+  let upstream: typeof import("update-notifier").default;
+
+  // One directory for the whole block: xdg-basedir computes its config path at module
+  // load, so the oracle binds to whatever XDG_CONFIG_HOME held on first import.
+  beforeAll(async () => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), "nun-interop-"));
+    process.env.CI = "0";
+    process.env.NODE_ENV = "development";
+    delete process.env.NO_UPDATE_NOTIFIER;
+    process.env.XDG_CONFIG_HOME = home;
+    upstream = (await import("update-notifier")).default;
+  });
+
+  beforeEach(() => {
+    fs.rmSync(path.join(home, "configstore"), { recursive: true, force: true });
+  });
+
+  afterAll(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  it("honours an opt-out written by update-notifier", async () => {
+    const ours = (await import("../src/index.js")).default;
+    const name = `interop-optout-${process.pid}`;
+
+    const theirs = upstream({ pkg: { name, version: "1.0.0" } });
+    theirs.config!.set("optOut", true);
+
+    const mine = ours({ pkg: { name, version: "1.0.0" } });
+    expect(mine.config!.path).toBe(theirs.config!.path);
+    expect(mine.config!.get("optOut")).toBe(true);
+  });
+
+  it("reads an update cached by update-notifier", async () => {
+    const ours = (await import("../src/index.js")).default;
+    const name = `interop-update-${process.pid}`;
+    const update = { latest: "2.0.0", current: "0.1.0", type: "major", name };
+
+    const theirs = upstream({ pkg: { name, version: "1.0.0" } });
+    theirs.config!.set("optOut", false);
+    theirs.config!.set("update", update);
+
+    const mine = ours({ pkg: { name, version: "1.0.0" } });
+    expect(mine.update).toEqual({ ...update, current: "1.0.0" });
   });
 });
