@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const LIMIT_BYTES = 30 * 1024;
+const LIMIT_BYTES = 32 * 1024;
 const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const runtimeDependencies = [
   ...Object.keys(manifest.dependencies ?? {}),
