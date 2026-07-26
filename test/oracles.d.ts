@@ -10,6 +10,7 @@ declare module "update-notifier" {
 
   type Config = {
     readonly size: number;
+    readonly path: string;
     get(key: string): unknown;
     set(key: string, value: unknown): void;
     has(key: string): boolean;
