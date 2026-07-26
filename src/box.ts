@@ -1,6 +1,7 @@
 import os from "node:os";
 import process from "node:process";
 import { visualWidth } from "./width.js";
+import { wrap } from "./wrap.js";
 
 export { stripAnsi, visualWidth } from "./width.js";
 
@@ -278,22 +279,36 @@ export function box(text: string, options: BoxOptions = {}): string {
     padding.bottom = 0;
   }
 
+  const contentWidth = width - padding.left - padding.right;
+
   // Each line is first centred against the widest line, then the whole block is
   // offset inside any extra width. Centring lines directly against the full width
   // rounds differently and drifts by a column.
-  const contentWidth = width - padding.left - padding.right;
-  const blockOffset =
-    textWidth >= contentWidth ? 0
-      : alignment === "center" ? Math.floor((contentWidth - textWidth) / 2)
-        : alignment === "right" ? contentWidth - textWidth
+  const alignGroup = (group: string[], reference: number): string[] => {
+    const groupOffset =
+      alignment === "center" ? Math.trunc((contentWidth - reference) / 2)
+        : alignment === "right" ? contentWidth - reference
           : 0;
+    return group.map((line) => {
+      const slack = reference - visualWidth(line);
+      const inner = alignment === "center" ? Math.floor(slack / 2) : alignment === "right" ? slack : 0;
+      return " ".repeat(Math.max(0, groupOffset + inner)) + line;
+    });
+  };
+
+  // Content that does not fit is wrapped one source line at a time, and each wrapped
+  // group is aligned against its own widest line rather than against the whole block.
+  const aligned =
+    textWidth > contentWidth
+      ? lines.flatMap((line) => {
+          const group = wrap(line, contentWidth, { hard: true }).split("\n");
+          return alignGroup(group, Math.max(0, ...group.map(visualWidth)));
+        })
+      : alignGroup(lines, textWidth);
 
   const blank = " ".repeat(width);
-  let body = lines.map((line) => {
-    const slack = textWidth - visualWidth(line);
-    const lineOffset = alignment === "center" ? Math.floor(slack / 2) : alignment === "right" ? slack : 0;
-    const padded =
-      " ".repeat(padding.left) + " ".repeat(blockOffset + lineOffset) + line + " ".repeat(padding.right);
+  let body = aligned.map((line) => {
+    const padded = " ".repeat(padding.left) + line + " ".repeat(padding.right);
     return padded + " ".repeat(Math.max(0, width - visualWidth(padded)));
   });
 
