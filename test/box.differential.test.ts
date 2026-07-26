@@ -217,3 +217,29 @@ describe("visualWidth differential against string-width", () => {
     });
   }
 });
+
+describe("reflow differential against boxen", () => {
+  const LONG = "Update available 1.0.0 to 2.0.0 please run npm install demo now";
+  const WORD = "supercalifragilisticexpialidocious";
+
+  const cases: Array<[string, string, BoxOptions]> = [
+    ["explicit narrow width", LONG, { width: 20 }],
+    ["explicit width, centred", LONG, { width: 20, textAlignment: "center" }],
+    ["explicit width, right", LONG, { width: 20, textAlignment: "right" }],
+    ["explicit width with padding", LONG, { width: 24, padding: 1 }],
+    ["long word breaks hard", WORD, { width: 12 }],
+    ["long word centred", WORD, { width: 12, textAlignment: "center" }],
+    ["multi-line input wraps per line", `${LONG}\nshort`, { width: 18 }],
+    ["styled text across the break", `\u001B[32m${LONG}\u001B[39m`, { width: 16 }],
+    ["CJK content", "更新があります 1.0.0 から 2.0.0 へ移行してください", { width: 18 }],
+    ["emoji content", "🎉 update available 🎉 run npm install now", { width: 14 }],
+    ["border none", LONG, { width: 20, borderStyle: "none" }],
+    ["with a title", LONG, { width: 22, title: "note" }],
+  ];
+
+  for (const [name, text, options] of cases) {
+    it(name, () => {
+      expect(box(text, structuredClone(options))).toBe(boxen(text, structuredClone(options) as never));
+    });
+  }
+});
