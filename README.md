@@ -79,9 +79,6 @@ registry environment overrides, bearer tokens, and basic authentication.
 
 ## Differences from `update-notifier`
 
-- The cache starts cold after switching over rather than reading the existing
-  ConfigStore file. This delays the first possible notification by one check
-  interval; application output and exit behaviour are unchanged.
 - A box wider than the terminal is not reflowed. `boxen` wraps the text to fit;
   here the box keeps its width and the terminal wraps it. The default notification
   is 43 columns wide, so this surfaces only in very narrow terminals or with a long
