@@ -6,12 +6,10 @@ import process from "node:process";
 type Data = Record<string, unknown>;
 type PathPart = string | number;
 
+// Mirrors xdg-basedir, which configstore resolves through: the XDG layout on every
+// platform, and `||` so an empty XDG_CONFIG_HOME falls through to the home directory.
 function configDirectory(): string {
-  if (process.env.XDG_CONFIG_HOME) return process.env.XDG_CONFIG_HOME;
-  if (process.platform === "win32") {
-    return process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
-  }
-  return path.join(os.homedir(), ".config");
+  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
 }
 
 function pathParts(value: string): PathPart[] {
