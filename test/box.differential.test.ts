@@ -39,8 +39,8 @@ afterAll(() => {
   }
 });
 
-// Content stays comfortably inside the terminal: boxen reflows text that would
-// overflow, and this implementation deliberately does not.
+// The matrix below keeps content inside the terminal so it exercises layout rather
+// than reflow. Reflow has its own describe block.
 const TEXT = "Update available 1.0.0 → 2.0.0\nRun npm i demo\nthird line";
 const ALIGNMENTS = ["left", "center", "right"] as const;
 const STYLES = [
@@ -240,6 +240,30 @@ describe("reflow differential against boxen", () => {
   for (const [name, text, options] of cases) {
     it(name, () => {
       expect(box(text, structuredClone(options))).toBe(boxen(text, structuredClone(options) as never));
+    });
+  }
+
+  // boxen reads process.stdout.columns on every call, so redefining it per test is
+  // enough — unlike its colour level, which chalk locks at import.
+  const narrow: Array<[string, number, string, BoxOptions]> = [
+    ["terminal 24", 24, LONG, {}],
+    ["terminal 24 centred", 24, LONG, { textAlignment: "center" }],
+    ["terminal 30 with padding", 30, LONG, { padding: 1 }],
+    ["terminal 20 with margins", 20, LONG, { margin: 2 }],
+    ["terminal 40 with asymmetric margins", 40, LONG, { margin: { left: 3, right: 5 } }],
+    ["terminal 16, long word", 16, WORD, {}],
+    ["terminal 24, explicit width wins", 24, LONG, { width: 40 }],
+    ["terminal 24 with a title", 24, LONG, { title: "note" }],
+  ];
+
+  for (const [name, columns, text, options] of narrow) {
+    it(name, () => {
+      Object.defineProperty(process.stdout, "columns", { configurable: true, value: columns });
+      try {
+        expect(box(text, structuredClone(options))).toBe(boxen(text, structuredClone(options) as never));
+      } finally {
+        Object.defineProperty(process.stdout, "columns", { configurable: true, value: 80 });
+      }
     });
   }
 });
