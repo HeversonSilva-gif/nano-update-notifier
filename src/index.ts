@@ -14,7 +14,15 @@ const ONE_DAY = 1000 * 60 * 60 * 24;
 export type Update = {
   latest: string;
   current: string;
-  type: string;
+  /**
+   * Matches the union `@types/update-notifier` declares, which is what every
+   * TypeScript consumer compiles against — `update-notifier` itself ships no types.
+   * The runtime is wider: `diff` returns premajor/preminor/prepatch too, exactly as
+   * upstream's `semver.diff` does. Declaring the wider truth would make this type
+   * unassignable to `UpdateInfo` and break drop-in use, so the incumbent's gap is
+   * reproduced deliberately rather than fixed. Pinned by test/types.differential.test.ts.
+   */
+  type: "latest" | "major" | "minor" | "patch" | "prerelease" | "build";
   name: string;
 };
 
@@ -125,7 +133,9 @@ export class UpdateNotifier {
     return {
       latest,
       current: this.#packageVersion,
-      type: diff(this.#packageVersion, latest) ?? distTag,
+      // Widening back down: the value is whatever semver reports, which can fall
+      // outside the declared union. See the note on Update["type"].
+      type: (diff(this.#packageVersion, latest) ?? distTag) as Update["type"],
       name: this._packageName,
     };
   }

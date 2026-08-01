@@ -35,10 +35,17 @@ export type BoxOptions = {
   fullscreen?: boolean | ((width: number, height: number) => [number, number]);
 };
 
+/**
+ * Matches the union `@types/update-notifier` declares, which is what every TypeScript
+ * consumer compiles against — `update-notifier` itself ships no declarations. The
+ * runtime is wider: `diff` returns premajor/preminor/prepatch, exactly as upstream's
+ * `semver.diff` does. Declaring that wider truth would make this unassignable to
+ * `UpdateInfo` and break drop-in use, so the incumbent's gap is reproduced on purpose.
+ */
 export type Update = {
   latest: string;
   current: string;
-  type: string;
+  type: "latest" | "major" | "minor" | "patch" | "prerelease" | "build";
   name: string;
 };
 
@@ -67,7 +74,9 @@ export type ConfigStore = {
   readonly path: string;
   readonly size: number;
   all: Record<string, unknown>;
-  get<T = unknown>(key: string): T | undefined;
+  // Defaults to `any`, not `unknown`, to match `configstore`: callers do arithmetic on
+  // the result without narrowing.
+  get<T = any>(key: string): T | undefined;
   set(key: string, value: unknown): void;
   set(values: Record<string, unknown>): void;
   has(key: string): boolean;

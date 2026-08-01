@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import ours, { UpdateNotifier } from "../src/index.js";
+import ours, { UpdateNotifier, type Update } from "../src/index.js";
 
 let upstream: typeof import("update-notifier").default;
 let home = "";
@@ -85,7 +85,12 @@ describe("API differential", () => {
 
   it("renders the default notification identically without color", () => {
     Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true });
-    const update = { latest: "2.0.0", current: "1.0.0", type: "major", name: "demo" };
+    const update = {
+      latest: "2.0.0",
+      current: "1.0.0",
+      type: "major",
+      name: "demo",
+    } satisfies Update;
     const theirs = upstream({ pkg: { name: "demo", version: "1.0.0" } });
     const mine = new UpdateNotifier({ pkg: { name: "demo", version: "1.0.0" } });
     theirs.update = { ...update };

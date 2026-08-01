@@ -167,7 +167,11 @@ export class Store {
     }
   }
 
-  get<T = unknown>(key: string): T | undefined {
+  // Defaults to `any`, not `unknown`, because `configstore` does and callers do
+  // arithmetic on the result without narrowing — facebook/docusaurus reads
+  // `Date.now() - config.get("lastUpdateCheck")` straight out of the store.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  get<T = any>(key: string): T | undefined {
     return getPath(this.#data, key) as T | undefined;
   }
 

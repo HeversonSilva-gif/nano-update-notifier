@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { UpdateNotifier, type NotifyOptions } from "../src/index.js";
+import { UpdateNotifier, type NotifyOptions, type Update } from "../src/index.js";
 
 // chalk resolves its colour level once, at import time, so colour has to be forced
 // before update-notifier is pulled in.
@@ -23,7 +23,12 @@ const original = {
   },
 };
 
-const UPDATE = { latest: "2.0.0", current: "1.0.0", type: "major", name: "demo" };
+const UPDATE = {
+  latest: "2.0.0",
+  current: "1.0.0",
+  type: "major",
+  name: "demo",
+} satisfies Update;
 
 beforeAll(async () => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "nun-render-"));
