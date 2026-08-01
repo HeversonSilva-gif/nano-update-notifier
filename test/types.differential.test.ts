@@ -8,8 +8,15 @@ import { diff } from "../src/version.js";
  * runtime — is the contract a drop-in replacement has to satisfy. This is the `type`
  * union it declares.
  *
- * Reproduced here rather than taken as a dependency because `test/oracles.d.ts` already
- * owns the hand-written view of upstream, and this keeps the two in one place.
+ * Copied rather than depended on: `@types/update-notifier` declares the module
+ * `update-notifier`, which `test/oracles.d.ts` already declares for the runtime oracle,
+ * and the two would collide. The published types are also v6 while the dev dependency
+ * is v7.3.1.
+ *
+ * Checked verbatim against `@types/update-notifier@6.0.8` (published 2023-11-16, the
+ * latest) on 2026-08-01 — it reads:
+ *   readonly type: "latest" | "major" | "minor" | "patch" | "prerelease" | "build";
+ * If that package ever moves, re-check this by hand; nothing here can detect it.
  */
 type UpstreamUpdateType = "latest" | "major" | "minor" | "patch" | "prerelease" | "build";
 
