@@ -94,4 +94,13 @@ export type UpdateNotifier = {
   notify(options?: NotifyOptions): UpdateNotifier;
 };
 
+/**
+ * The spellings `@types/update-notifier` exports. That package, not the runtime, is what
+ * consumers compile against; without these, changing the import specifier fails TS2305.
+ * Aliases, not renames — nothing that compiles today stops compiling.
+ */
+export type Package = PackageInformation;
+export type Settings = Options;
+export type UpdateInfo = Update;
+
 export default function updateNotifier(options?: Options): UpdateNotifier;
