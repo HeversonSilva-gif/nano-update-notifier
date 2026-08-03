@@ -1,0 +1,14 @@
+# Normalise line endings to LF in the working tree on every platform.
+#
+# Without this the tarball's contents depend on who checked the repository out:
+# a Windows checkout converts to CRLF, which adds one byte per line to every text
+# file that ships and moved `check:size` by 337 bytes. The budget in
+# scripts/check-size.mjs is meaningless if it measures a different artifact on
+# each platform.
+* text=auto eol=lf
+
+# Anything binary that shows up later must not be touched.
+*.png binary
+*.jpg binary
+*.gz binary
+*.wasm binary
