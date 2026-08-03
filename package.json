@@ -32,11 +32,15 @@
   "sideEffects": false,
   "license": "MIT",
   "keywords": [
+    "update-notifier",
     "update",
     "notifier",
     "notify",
     "cli",
-    "zero-dependency"
+    "zero-dependency",
+    "no-dependencies",
+    "commonjs",
+    "esm"
   ],
   "engines": {
     "node": ">=18"
